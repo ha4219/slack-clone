@@ -1,22 +1,45 @@
-import { Channels, Chats, Header, MenuScroll, ProfileImg, RightMenu, WorkspaceName, Workspaces, WorkspaceWrapper } from '@layouts/Workspace/styles';
-import { IUser } from '@typings/db';
+import { AddButton, Channels, Chats, Header, LogOutButton, MenuScroll, ProfileImg, RightMenu, WorkspaceButton, WorkspaceModal, WorkspaceName, Workspaces, WorkspaceWrapper } from '@layouts/Workspace/styles';
+import { IChannel, IUser } from '@typings/db';
 import fetcher from '@utils/fetcher';
 import axios from 'axios';
-import React, { FC, useCallback, useState } from 'react';
-import { Redirect, Route, Switch } from 'react-router-dom';
+import React, { VFC, useCallback, useState } from 'react';
+import { Link, Redirect, Route, Switch, useParams } from 'react-router-dom';
 import useSWR from 'swr';
 import gravatar from 'gravatar';
 import loadable from '@loadable/component';
 import Menu from '@components/Menu';
+import Modal from '@components/Modal';
+import { Button, Input, Label } from '@pages/Signup/styles';
+import useInput from '@hooks/useInput';
+import { toast } from 'react-toastify';
+import CreateChannelModal from '@components/CreateChannelModal';
+import InviteWorkspaceModal from '@components/InviteWorkspaceModal';
+import InviteChannelModal from '@components/InviteChannelModal';
 
 const Channel = loadable(() => import('@pages/Channel'));
 const DirectMessage = loadable(() => import('@pages/DirectMessage'));
 
+interface Params {
+  workspace: string;
+};
 
-const Workspace: FC = ({children}) => {
+const Workspace: VFC = () => {
+  const {workspace} = useParams<Params>();
+
   const {data: userData, mutate: revalidateUser } = useSWR<IUser | false>('/api/users/', fetcher);
+  const {data: channelData, mutate: revalidateChannel} = useSWR<IChannel[]>(userData ? `/api/workspaces/${workspace}/channels` : null, fetcher);
+
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const onClickUserProfile = useCallback(() => {
+  const [showCreateWorkspaceModal, setShowCreateWorkSpaceModal] = useState(false);
+  const [newWorkspace, setNewWorkspace, onChangeNewWorkspace] = useInput('');
+  const [newWorkspaceUrl, setNewWorkspaceUrl, onChangeNewWorkspaceUrl] = useInput('');
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
+  const [showInviteWorkspaceModal, setShowInviteWorkspaceModal] = useState(false);
+  const [showInviteChannelModal, setShowInviteChannelModal] = useState(false);
+
+  const onClickUserProfile = useCallback((e) => {
+    e.stopPropagation();
     setShowUserMenu(prev => !prev);
   }, []);
 
@@ -28,6 +51,52 @@ const Workspace: FC = ({children}) => {
     });
   }, []);
 
+  const onClickCreateWorkspace = useCallback(() => {
+    setShowCreateWorkSpaceModal(prev => !prev);
+  }, []);
+
+  const onCloseModal = useCallback(() => {
+    setShowCreateWorkSpaceModal(false);
+    setShowCreateChannelModal(false);
+    setShowInviteChannelModal(false);
+    setShowInviteWorkspaceModal(false);
+  }, []);
+
+  const onCreateWorkspace = useCallback((e) => {
+    e.preventDefault();
+    console.warn(newWorkspace, newWorkspaceUrl);
+    
+    if (!newWorkspace || !newWorkspace.trim()) return;
+    if (!newWorkspaceUrl || !newWorkspaceUrl.trim()) return;
+
+    axios.post('/api/workspaces', {
+      workspace: newWorkspace,
+      url: newWorkspaceUrl,
+    },{
+      withCredentials: true,
+    }).then(() => {
+      revalidateUser();
+      setShowCreateWorkSpaceModal(false);
+      setNewWorkspace('');
+      setNewWorkspaceUrl('');
+    }).catch((e) => {
+      console.dir(e);
+      toast.error(e.response?.data, {position: 'bottom-center'});
+    });
+  }, [newWorkspace, newWorkspaceUrl]);
+
+  const toggleWorkspaceModal = useCallback(() => {    
+    setShowWorkspaceModal((prev) => !prev);
+  }, []);
+
+  const onClickAddChannel = useCallback(() => {
+    setShowCreateChannelModal(true);
+  }, []);
+
+  const onClickInviteWorkspace = useCallback(() => {
+
+  }, []);
+
   if (userData === false) {
     return <Redirect to="/login" />;
   }
@@ -35,39 +104,91 @@ const Workspace: FC = ({children}) => {
   return (
     <div>
       <Header>
-        <RightMenu>
-          <span onClick={onClickUserProfile}>
-            icon
-            {/* <ProfileImg src={gravatar.url(userData.email, { s: '28px', d: 'retro' })} alt={userData.nickname} /> */}
-            {showUserMenu && 
-              <Menu style={{ right: 0, top:38 }} show={showUserMenu} onCloseModal={onClickUserProfile}>
-                profile menu
-              </Menu>
-            }
-          </span>
-        </RightMenu>
+        {userData && (
+          <RightMenu>
+            <span onClick={onClickUserProfile}>
+              <ProfileImg src={gravatar.url(userData.email, { s: '28px', d: 'retro' })} alt={userData.nickname} />
+              {showUserMenu && 
+                <Menu style={{ right: 0, top:38 }} show={showUserMenu} onCloseModal={onClickUserProfile}>
+                  <img src={gravatar.url(userData.email, { s: '36px', d: 'retro' })} alt={userData.nickname} />
+                  <div>
+                    <span id="profile-name">{userData?.nickname}</span>
+                    <span id="profile-active">Active</span>
+                  </div>
+                  <LogOutButton onClick={onLogout}>logout</LogOutButton>
+                </Menu>
+              }
+            </span>
+          </RightMenu>
+        )}
       </Header>
-      <button onClick={onLogout}>로그아웃</button>
       <WorkspaceWrapper>
         <Workspaces>
-          test
+          {userData?.Workspaces.map(ws => {
+            return (
+              <Link key={ws.id} to={`workspace/${ws.id}/channel/일반`}>
+                <WorkspaceButton>{ws.name.slice(0,1).toUpperCase()}</WorkspaceButton>
+              </Link>
+            );
+          })}
+          <AddButton onClick={onClickCreateWorkspace}>+</AddButton>
         </Workspaces>
         <Channels>
-          <WorkspaceName>
+          <WorkspaceName onClick={toggleWorkspaceModal}>
             Slack-Clone
           </WorkspaceName>
           <MenuScroll>
-            <ul>hi</ul>
+            <Menu style={{top:95, left:80}} show={showWorkspaceModal} onCloseModal={toggleWorkspaceModal}>
+              <WorkspaceModal>
+                <h2>Slack-Clone</h2>
+                <button onClick={onClickAddChannel}>create channel</button>
+                <button onClick={onLogout}>logout</button>
+              </WorkspaceModal>
+            </Menu>
+            {channelData?.map((v) => (
+              <div key={v.id}>{v.name}</div>
+            ))}
           </MenuScroll>
         </Channels>
         <Chats>
           <Switch>
-            <Route path='/workspace/channel' component={Channel}/>
-            <Route path='/workspace/dm' component={DirectMessage}/>
+            <Route path='/workspace/:workspace/channel/:channel' component={Channel}/>
+            <Route path='/workspace/:workspace/dm/:id' component={DirectMessage}/>
           </Switch>
         </Chats>
       </WorkspaceWrapper>
-      {children}
+      <Modal show={showCreateWorkspaceModal} onCloseModal={onCloseModal}>
+        <form onSubmit={onCreateWorkspace}>
+          <Label>
+            <span id="workspace-label">
+              workspace name
+            </span>
+            <Input id='workspace' value={newWorkspace} onChange={onChangeNewWorkspace}/>
+          </Label>
+          <Label id='workspace-url-label'>
+            <span>
+              workspace url
+            </span>
+            <Input id='workspace' value={newWorkspaceUrl} onChange={onChangeNewWorkspaceUrl}/>
+          </Label>
+          <Button type='submit'>Create</Button>
+        </form>
+      </Modal>
+      <CreateChannelModal
+        show={showCreateChannelModal}
+        onCloseModal={onCloseModal} 
+        setShowCreateChannelModal={setShowCreateChannelModal}
+      />
+      <InviteWorkspaceModal
+        show={showInviteWorkspaceModal}
+        onCloseModal={onCloseModal}
+        setShowInviteWorkspaceModal={setShowInviteWorkspaceModal}
+      />
+      <InviteChannelModal
+        show={showInviteChannelModal}
+        onCloseModal={onCloseModal}
+        setShowInviteChannelModal={setShowInviteChannelModal}
+      />
     </div>
   );
 };
