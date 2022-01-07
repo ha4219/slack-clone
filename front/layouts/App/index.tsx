@@ -1,7 +1,10 @@
 import React from 'react';
 import { Switch, Route, Redirect } from 'react-router';
-import Login from '@pages/Login';
-import Signup from '@pages/Signup';
+import loadable from '@loadable/component';
+
+const Login = loadable(() => import('@pages/Login'));
+const Signup = loadable(() => import('@pages/Signup'));
+const Workspace = loadable(() => import('@layouts/Workspace'));
 
 const App = () => {
   return (
@@ -9,6 +12,7 @@ const App = () => {
       <Redirect exact path='/' to='/login'/>
       <Route path='/login' component={Login}/>
       <Route path='/signup' component={Signup}/>
+      <Route path='/workspace' component={Workspace}/>
     </Switch>
   );
 };
