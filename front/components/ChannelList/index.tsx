@@ -1,47 +1,48 @@
-// import Chat from '@components/Chat';
-// import { ChatZone, Section, StickyHeader } from '@components/ChatList/styles';
-import { IChat, IDM } from '@typings/db';
-import React, { FC, RefObject, useCallback } from 'react';
-import { Scrollbars } from 'react-custom-scrollbars-2';
-import { ChatZone, Section, StickyHeader } from './styles';
+import { CollapseButton } from '@components/DMList/styles';
+import EachChannel from '@components/EachChannel';
+import { IChannel, IUser } from '@typings/db';
+import fetcher from '@utils/fetcher';
+import React, { FC, useCallback, useState } from 'react';
+import { useParams } from 'react-router';
+import useSWR from 'swr';
 
 interface Props {
-  scrollbarRef: RefObject<Scrollbars>;
-  isReachingEnd?: boolean;
-  isEmpty: boolean;
-  chatSections: { [key: string]: (IDM | IChat)[] };
-  setSize: (f: (size: number) => number) => Promise<(IDM | IChat)[][] | undefined>;
+  channelData?: IChannel[];
+  userData?: IUser;
 }
-const ChatList: FC<Props> = ({ scrollbarRef, isReachingEnd, isEmpty, chatSections, setSize }) => {
-  const onScroll = useCallback(
-    (values) => {
-      if (values.scrollTop === 0 && !isReachingEnd && !isEmpty) {
-        setSize((size) => size + 1).then(() => {
-          scrollbarRef.current?.scrollTop(scrollbarRef.current?.getScrollHeight() - values.scrollHeight);
-        });
-      }
-    },
-    [setSize, scrollbarRef, isReachingEnd, isEmpty],
-  );
+
+const ChannelList: FC<Props> = () => {
+  const { workspace } = useParams<{ workspace?: string }>();
+  const [channelCollapse, setChannelCollapse] = useState(false);
+  const { data: userData } = useSWR<IUser>('/api/users', fetcher, {
+    dedupingInterval: 2000, // 2초
+  });
+  const { data: channelData } = useSWR<IChannel[]>(userData ? `/api/workspaces/${workspace}/channels` : null, fetcher);
+
+  const toggleChannelCollapse = useCallback(() => {
+    setChannelCollapse((prev) => !prev);
+  }, []);
 
   return (
-    <ChatZone>
-      <Scrollbars autoHide ref={scrollbarRef} onScrollFrame={onScroll}>
-        {Object.entries(chatSections).map(([date, chats]) => {
-          return (
-            <Section className={`section-${date}`} key={date}>
-              <StickyHeader>
-                <button>{date}</button>
-              </StickyHeader>
-              {/* {chats.map((chat) => (
-                <Chat key={chat.id} data={chat} />
-              ))} */}
-            </Section>
-          );
-        })}
-      </Scrollbars>
-    </ChatZone>
+    <>
+      <h2>
+        <CollapseButton collapse={channelCollapse} onClick={toggleChannelCollapse}>
+          <i
+            className="c-icon p-channel_sidebar__section_heading_expand p-channel_sidebar__section_heading_expand--show_more_feature c-icon--caret-right c-icon--inherit c-icon--inline"
+            data-qa="channel-section-collapse"
+            aria-hidden="true"
+          />
+        </CollapseButton>
+        <span>Channels</span>
+      </h2>
+      <div>
+        {!channelCollapse &&
+          channelData?.map((channel) => {
+            return <EachChannel key={channel.id} channel={channel} />;
+          })}
+      </div>
+    </>
   );
 };
 
-export default ChatList;
+export default ChannelList;

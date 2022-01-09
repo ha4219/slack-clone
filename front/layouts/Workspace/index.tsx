@@ -2,7 +2,7 @@ import { AddButton, Channels, Chats, Header, LogOutButton, MenuScroll, ProfileIm
 import { IChannel, IUser } from '@typings/db';
 import fetcher from '@utils/fetcher';
 import axios from 'axios';
-import React, { VFC, useCallback, useState } from 'react';
+import React, { VFC, useCallback, useState, useEffect } from 'react';
 import { Link, Redirect, Route, Switch, useParams } from 'react-router-dom';
 import useSWR from 'swr';
 import gravatar from 'gravatar';
@@ -11,10 +11,13 @@ import Menu from '@components/Menu';
 import Modal from '@components/Modal';
 import { Button, Input, Label } from '@pages/Signup/styles';
 import useInput from '@hooks/useInput';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import CreateChannelModal from '@components/CreateChannelModal';
 import InviteWorkspaceModal from '@components/InviteWorkspaceModal';
 import InviteChannelModal from '@components/InviteChannelModal';
+import ChannelList from '@components/ChannelList';
+import DMList from '@components/DMList';
+import useSocket from '@hooks/useSocket';
 
 const Channel = loadable(() => import('@pages/Channel'));
 const DirectMessage = loadable(() => import('@pages/DirectMessage'));
@@ -37,6 +40,19 @@ const Workspace: VFC = () => {
   const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
   const [showInviteWorkspaceModal, setShowInviteWorkspaceModal] = useState(false);
   const [showInviteChannelModal, setShowInviteChannelModal] = useState(false);
+  const [socket, disconnect] = useSocket(workspace);
+
+  useEffect(() => {
+    if (channelData && userData && socket) {
+      socket.emit('login', {id:userData.id, channels: channelData.map((v) => v.id)});
+    }
+  }, [socket, channelData, userData]);
+
+  useEffect(() => {
+    return () => {
+      disconnect();
+    }
+  }, [workspace, disconnect]);
 
   const onClickUserProfile = useCallback((e) => {
     e.stopPropagation();
@@ -94,7 +110,7 @@ const Workspace: VFC = () => {
   }, []);
 
   const onClickInviteWorkspace = useCallback(() => {
-
+    setShowInviteWorkspaceModal(true);
   }, []);
 
   if (userData === false) {
@@ -126,7 +142,7 @@ const Workspace: VFC = () => {
         <Workspaces>
           {userData?.Workspaces.map(ws => {
             return (
-              <Link key={ws.id} to={`workspace/${ws.id}/channel/일반`}>
+              <Link key={ws.id} to={`/workspace/${ws.id}/channel/일반`}>
                 <WorkspaceButton>{ws.name.slice(0,1).toUpperCase()}</WorkspaceButton>
               </Link>
             );
@@ -141,13 +157,13 @@ const Workspace: VFC = () => {
             <Menu style={{top:95, left:80}} show={showWorkspaceModal} onCloseModal={toggleWorkspaceModal}>
               <WorkspaceModal>
                 <h2>Slack-Clone</h2>
+                <button onClick={onClickInviteWorkspace}>invite user in workspace</button>
                 <button onClick={onClickAddChannel}>create channel</button>
                 <button onClick={onLogout}>logout</button>
               </WorkspaceModal>
             </Menu>
-            {channelData?.map((v) => (
-              <div key={v.id}>{v.name}</div>
-            ))}
+            <ChannelList/>
+            <DMList/>
           </MenuScroll>
         </Channels>
         <Chats>
@@ -189,6 +205,7 @@ const Workspace: VFC = () => {
         onCloseModal={onCloseModal}
         setShowInviteChannelModal={setShowInviteChannelModal}
       />
+      <ToastContainer position='bottom-center'/>
     </div>
   );
 };
