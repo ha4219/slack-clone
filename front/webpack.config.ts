@@ -8,13 +8,14 @@ interface Configuration extends WebpackConfiguration {
 }
 
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const config: Configuration = {
   name: 'slack-clone',
   mode: isDevelopment ? 'development' : 'production',
-  devtool: isDevelopment ? 'hidden-source-map' : 'inline-source-map',
+  devtool: !isDevelopment ? 'hidden-source-map' : 'inline-source-map',
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     alias: {
@@ -92,6 +93,7 @@ const config: Configuration = {
 
 if (isDevelopment && config.plugins) {
   config.plugins.push(new webpack.HotModuleReplacementPlugin());
+  config.plugins.push(new ReactRefreshWebpackPlugin());
   config.plugins.push(new ReactRefreshWebpackPlugin({
     overlay: {
       useURLPolyfill: true
@@ -99,6 +101,8 @@ if (isDevelopment && config.plugins) {
   }));
 }
 if (!isDevelopment && config.plugins) {
+  config.plugins.push(new webpack.LoaderOptionsPlugin({minimize: true}));
+  config.plugins.push(new BundleAnalyzerPlugin({analyzerMode: 'static'}));
 }
 
 export default config;

@@ -5,8 +5,8 @@ import { ChatZone, Section, StickyHeader } from './styles';
 import {Scrollbars} from 'react-custom-scrollbars-2';
 
 interface Props {
-  chatSections: { [key: string]: (IDM)[] };
-  setSize: (f: (size: number) => number) => Promise<(IDM)[][] | undefined>;
+  chatSections: { [key: string]: (IDM | IChat)[] };
+  setSize: (f: (size: number) => number) => Promise<(IDM | IChat)[][] | undefined>;
   isEmpty: boolean;
   isReachingEnd?: boolean;
   scrollbarRef: RefObject<Scrollbars>;
